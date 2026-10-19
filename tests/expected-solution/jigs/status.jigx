@@ -1,0 +1,14 @@
+title: Status
+type: jig.list
+data: |
+  =[{"title": "Offline", "icon": "cloud-exclamation", "righticon": "refresh"}, {"title": "Ok", "icon": "calendar"}]
+item:
+  type: component.list-item
+  options:
+    title: =@ctx.current.item.title
+    leftElement:
+      element: icon
+      icon: =@ctx.current.item.icon
+    rightElement:
+      element: icon
+      icon: =@ctx.current.item.righticon

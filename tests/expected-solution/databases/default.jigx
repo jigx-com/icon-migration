@@ -1,4 +1,6 @@
 tables:
+  appointmentMenu: null
   menu:
     query: |
       SELECT id, CASE WHEN kind = 'mail' THEN 'mail-plus' ELSE 'list-check' END AS icon FROM menu
+      SELECT 'calendar' AS icon FROM other

@@ -7,7 +7,17 @@
 // changing decisions. --revert puts the pristine copies back.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fail, hash, isValidTabler, loadData, readJson, solutionDirFromArgs, workDir, writeJson } from './lib.mjs'
+import {
+  WORK_DIR_NAME,
+  fail,
+  hash,
+  isValidTabler,
+  loadData,
+  readJson,
+  solutionDirFromArgs,
+  workDir,
+  writeJson,
+} from './lib.mjs'
 
 const argv = process.argv.slice(2)
 const solutionDir = solutionDirFromArgs(argv)
@@ -45,6 +55,11 @@ if (argv.includes('--revert')) {
 const decisions = readJson(join(dir, 'decisions.json'))
 const problems = []
 
+function findName(text, name) {
+  const match = new RegExp(`(^|[^a-z0-9-])${name.replace(/[-]/g, '\\-')}(?![a-z0-9-])`).exec(text)
+  return match ? match.index + match[1].length : -1
+}
+
 const items = new Map()
 const addItem = (old, item) => items.set(old, { old, uses: 0, where: [], alternatives: [], ...item })
 
@@ -60,6 +75,28 @@ for (const [old, entry] of Object.entries(scan.pending)) {
   addItem(old, { new: null, confidence: 'check', source: 'chosen', where: [...entry.where] })
 }
 
+// A position confirmed as an icon. Names that are already valid Tabler icons
+// and have no choice stay as they are.
+const positions = new Set([...items.values()].flatMap((item) => item.where.map((w) => `${w.file}:${w.line}:${w.col}`)))
+function addPosition({ name, file, line, col, context }) {
+  if (positions.has(`${file}:${line}:${col}`)) {
+    return
+  }
+  positions.add(`${file}:${line}:${col}`)
+  if (!items.has(name)) {
+    const mapped = data.mapping[name]
+    if (!mapped && !decisions.choices?.[name]?.new && isValidTabler(data, name)) {
+      return
+    }
+    addItem(name, {
+      new: mapped ?? null,
+      confidence: mapped && !data.check.has(name) ? 'high' : 'check',
+      source: mapped ? 'reference' : 'chosen',
+    })
+  }
+  items.get(name).where.push({ file, line, col, context })
+}
+
 for (const maybe of scan.maybe) {
   const verdict = decisions.maybe?.[maybe.id]
   if (verdict === 'skip') {
@@ -69,16 +106,24 @@ for (const maybe of scan.maybe) {
     problems.push(`maybe ${maybe.id} (${maybe.name}) has no decision; set "icon" or "skip"`)
     continue
   }
-  if (!items.has(maybe.name)) {
-    const mapped = data.mapping[maybe.name]
-    addItem(maybe.name, {
-      new: mapped ?? null,
-      confidence: mapped && !data.check.has(maybe.name) ? 'high' : 'check',
-      source: mapped ? 'reference' : 'chosen',
-    })
+  addPosition(maybe)
+}
+
+// Positions the scan missed, added by hand: { file, line, name, col? }.
+for (const extra of decisions.extra ?? []) {
+  const path = join(solutionDir, WORK_DIR_NAME, 'original', extra.file)
+  const source = existsSync(path) ? path : join(solutionDir, extra.file)
+  if (!extra.file || !extra.line || !extra.name || !existsSync(source)) {
+    problems.push(`extra ${JSON.stringify(extra)} needs an existing file, a line and a name`)
+    continue
   }
-  const { file, line, col, context } = maybe
-  items.get(maybe.name).where.push({ file, line, col, context })
+  const text = readFileSync(source, 'utf8').split(/\r?\n/)[extra.line - 1] ?? ''
+  const col = extra.col ?? findName(text, extra.name)
+  if (col < 0 || text.slice(col, col + extra.name.length) !== extra.name) {
+    problems.push(`extra ${extra.file}:${extra.line} does not contain "${extra.name}"${extra.col === undefined ? '' : ` at column ${extra.col}`}`)
+    continue
+  }
+  addPosition({ name: extra.name, file: extra.file, line: extra.line, col, context: text.trim().slice(0, 140) })
 }
 
 for (const [old, choice] of Object.entries(decisions.choices ?? {})) {
@@ -213,7 +258,11 @@ console.log(`Applied: ${Object.keys(newState.written).length} files, ${changedUs
 const checks = output.icons.filter((item) => item.confidence === 'check')
 if (checks.length) {
   console.log('To check:')
-  checks.forEach((item) => console.log(`  ${item.old} -> ${item.new}${item.note ? ` (${item.note})` : ''}`))
+  checks.forEach((item) => {
+    const reason = item.note || (item.source === 'reference' ? 'approximate reference pick' : 'no reason given')
+    const alternatives = item.alternatives.length ? `; alternatives: ${item.alternatives.join(', ')}` : ''
+    console.log(`  ${item.old} -> ${item.new} (${reason}${alternatives})`)
+  })
 }
 if (duplicatesRemoved.length) {
   console.log(`Removed duplicates from ${iconsAsset}: ${duplicatesRemoved.join(', ')}`)

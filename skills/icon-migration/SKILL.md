@@ -24,7 +24,10 @@ node "$SKILL/scripts/scan.mjs" <solution>
 2. Confirm the folder is a Jigx solution (`index.jigx` at its root). If the user has several
    solutions, migrate one at a time.
 3. If the folder is a git repo with uncommitted changes, mention it so they can commit first.
-   The migration can be undone either way (see Undo).
+   The migration can be undone either way (see Undo). `scan.mjs` adds `.icon-migration/` to
+   the repo's local `.git/info/exclude`, because that folder holds full copies of the original
+   files. Tell the user if the solution is not in git, so they keep that folder out of any
+   upload.
 
 ## 1. Scan
 
@@ -37,7 +40,13 @@ skeleton, and prints a summary:
 - **maybe**: places where a string could be an icon but sits outside an icon key (SQL, data,
   helper code, odd expression strings). You decide "icon" or "skip".
 - **dynamic**: icon values computed from data with no literal name in the files.
+- **fromData**: icon columns read from tables with `json_extract(data, '$.icon')`, labelled
+  Dynamic Data when the table is declared as `null` in `databases/default.jigx`. These are
+  pre-filled into `decisions.json`.
 - **unchanged**: names that are already valid Tabler names. Left as they are.
+
+Strings set on icon-like keys of inline data (`"icon": "…"`, `"righticon": "…"`) and on
+properties that icon expressions read (`icon: =@ctx.current.item.righticon`) count as icons.
 
 Flags (`us`, `gb`, …), `start-marker`, `end-marker`, `jigx-solid` and the placeholder
 animations (`loading-data`, `missing-data`, `is-offline`, `oil-drop`, `helicopter`,
@@ -79,15 +88,30 @@ file, line, the line's text and the label shown next to the icon).
 
 Set each id to `"icon"` when the string feeds an icon property (for example a SQL `CASE`
 that returns the icon column, or a JS helper that returns an icon name), otherwise `"skip"`.
-If you mark an unknown name as `"icon"`, also add it to `choices`.
+If you mark an unknown name as `"icon"`, also add it to `choices`. Names that are already
+valid Tabler icons stay as they are, whichever you choose.
+
+### extra — places the scan missed
+
+If you find an old icon name the scan did not list, add its position instead of editing the
+file by hand (hand edits make the next apply refuse):
+
+```json
+"extra": [{ "file": "scripts/helpers.js", "line": 42, "name": "server-network" }]
+```
+
+`col` is optional; without it the first whole-word match on that line is used. Mapped names
+get their reference pick; any other name needs a `choices` entry. Line numbers refer to the
+files as they were before the migration.
 
 ### notMigrated and fromData
 
 - `notMigrated`: icon names you found but could not rewrite safely, for example a name built
   by string concatenation. `{ "name", "file", "line", "reason" }`.
 - `fromData`: icon values that come from a database, REST datasource or other external data,
-  so the values must be updated at the source. Go through the **dynamic** list in
-  `scan.json` to find them. `{ "source", "file", "line" }`.
+  so the values must be updated at the source. Table reads are pre-filled; also go through
+  the **dynamic** list in `scan.json` and trace each expression to its datasource.
+  `{ "source", "file", "line" }`.
 
 You may also add `choices` for mapped names, but only when the user asks for a different
 pick (see step 5). Leave `oldSvg` out; the review page fetches old pictures itself.
@@ -102,13 +126,18 @@ If it lists problems, fix `decisions.json` and run it again. It always rebuilds 
 pristine copies in `.icon-migration/original/`, so running it again is safe. It refuses to
 overwrite a file the user changed after the last apply; ask before passing `--force`.
 
+Then run `verify.mjs <solution>`. It scans the current files and lists old or invalid names
+still in icon positions; it ignores `.icon-migration/` and ordinary strings that merely look
+like icon names. Fix anything it lists through `extra` or `choices` and apply again. Do not
+grep for leftovers by hand.
+
 ## 4. Open the review
 
 Run `review.mjs <solution>`. It builds `.icon-migration/review.html` with everything built
 in and opens it in the browser. Then report briefly in chat:
 
 - Totals: files changed, icon uses changed, old names migrated.
-- The `check` rows only: old → new, one reason each.
+- The `check` rows only: old → new, one reason each (apply prints them with their notes).
 - Merges you avoided and the duplicates removed from `assets/icons.jigx`.
 - `notMigrated` and `fromData`.
 

@@ -52,32 +52,55 @@ const scan = JSON.parse(readFileSync(join(work, '.icon-migration', 'scan.json'),
 const decisions = JSON.parse(readFileSync(join(work, '.icon-migration', 'decisions.json'), 'utf8'))
 const expectedMaybe = {
   'components/button.jigx:7:30': 'skip',
-  'databases/default.jigx:4:47': 'icon',
-  'databases/default.jigx:4:71': 'icon',
-  'scripts/cards.js:3:25': 'icon',
+  'databases/default.jigx:5:47': 'icon',
+  'databases/default.jigx:5:71': 'icon',
+  // Already a valid Tabler name: confirming it must be a no-op.
+  'databases/default.jigx:6:14': 'icon',
 }
 const failures = []
-if (Object.keys(decisions.maybe).sort().join() !== Object.keys(expectedMaybe).sort().join()) {
-  failures.push(`maybe ids: ${Object.keys(decisions.maybe).join(', ')}`)
+const expectEqual = (label, actual, expected) => {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    failures.push(`${label}: got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)
+  }
 }
-if (Object.keys(scan.pending).join() !== 'unknown-thing') {
-  failures.push(`pending: ${Object.keys(scan.pending).join(', ')}`)
-}
-if (scan.dynamic.length !== 1) {
-  failures.push(`dynamic: ${scan.dynamic.length}`)
-}
+expectEqual('maybe ids', Object.keys(decisions.maybe).sort(), Object.keys(expectedMaybe).sort())
+expectEqual('pending', Object.keys(scan.pending), ['unknown-thing'])
+expectEqual('dynamic', scan.dynamic.map((item) => `${item.file}:${item.line}`), [
+  'jigs/list.jigx:35',
+  'jigs/status.jigx:11',
+  'jigs/status.jigx:14',
+])
+expectEqual('fromData', decisions.fromData, [
+  { source: 'default/appointmentMenu ($.icon, Dynamic Data)', file: 'datasources/menu.jigx', line: 5 },
+])
+expectEqual('single-literal block expression', scan.mapped['cloud-warning']?.where.map((w) => `${w.file}:${w.line}`), [
+  'jigs/list.jigx:38',
+  'jigs/status.jigx:4',
+])
+expectEqual('inline single-literal expression', scan.mapped.alert?.where.map((w) => `${w.file}:${w.line}`), ['jigs/list.jigx:40'])
 
 decisions.maybe = expectedMaybe
 decisions.choices = {
   'unknown-thing': { new: 'help-circle', alternatives: ['question-mark'], confidence: 'check', note: 'No picture' },
-  'credit-card-visa': { new: 'credit-card', alternatives: ['brand-visa'], confidence: 'check' },
+  'server-network': { new: 'server-2', alternatives: ['server'], confidence: 'high' },
   'time-clock-circle': { new: 'clock-hour-4' },
 }
-decisions.fromData = [{ source: 'item.icon from appointments datasource', file: 'jigs/list.jigx', line: 35 }]
+decisions.extra = [{ file: 'scripts/cards.js', line: 6, name: 'server-network' }]
 writeFileSync(join(work, '.icon-migration', 'decisions.json'), JSON.stringify(decisions, null, 2))
+
+const verifyExitCode = () => {
+  try {
+    run('verify.mjs')
+    return 0
+  } catch (error) {
+    return error.status
+  }
+}
+expectEqual('verify before apply', verifyExitCode(), 1)
 
 run('apply.mjs')
 run('apply.mjs')
+expectEqual('verify after apply', verifyExitCode(), 0)
 
 if (process.argv.includes('--update')) {
   rmSync(expected, { recursive: true, force: true })

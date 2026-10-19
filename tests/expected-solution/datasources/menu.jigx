@@ -1,0 +1,7 @@
+type: datasource.sqlite
+options:
+  query: |
+    SELECT id
+    ,json_extract(data, '$.icon') AS icon
+    FROM
+    [default/appointmentMenu]

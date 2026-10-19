@@ -59,7 +59,9 @@ npx skills remove icon-migration -g
 | --- | --- |
 | `skills/icon-migration/SKILL.md` | The workflow the agent follows |
 | `skills/icon-migration/scripts/scan.mjs` | Finds every icon name and sorts it into mapped, pending and maybe |
+| `skills/icon-migration/scripts/scanner.mjs` | The scanning rules, shared by scan and verify |
 | `skills/icon-migration/scripts/apply.mjs` | Validates choices, rewrites files, dedupes `assets/icons.jigx`, `--revert` |
+| `skills/icon-migration/scripts/verify.mjs` | Lists old or invalid names still in icon positions |
 | `skills/icon-migration/scripts/review.mjs` | Builds and opens the self-contained review page |
 | `skills/icon-migration/scripts/find.mjs` | Searches Tabler names and tags |
 | `skills/icon-migration/data/` | Reference mapping, Tabler 3.49.0 outline set, old pictures, names to keep |

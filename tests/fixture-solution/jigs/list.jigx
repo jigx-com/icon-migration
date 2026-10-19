@@ -33,3 +33,8 @@ item:
       icon: unknown-thing
     label:
       icon: =@ctx.current.item.icon
+    footer:
+      icon: |
+        ='cloud-warning'
+    header:
+      icon: ='alert'

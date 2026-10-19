@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Icon Migration Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: work queue. Header with loader, filter tabs, one row per old icon, sticky footer with the result. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --sunken: #eef1f5;
+  --ink: #17202b;
+  --muted: #5b6676;
+  --line: #dde2e9;
+  --accent: #206bc4;
+  --accent-soft: #e6effa;
+  --warn: #b45309;
+  --warn-soft: #fdf1e2;
+  --good: #2f7d4f;
+  --good-soft: #e5f3ea;
+  --old: #4b5563;
+  --img-filter: none;
+  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --surface: #171e27; --sunken: #121820; --ink: #e8edf3; --muted: #9aa5b4; --line: #2a3441;
+    --accent: #5b9be6; --accent-soft: #1a2a3e; --warn: #f2a65a; --warn-soft: #2b2015; --good: #5cc58a; --good-soft: #15281d;
+    --old: #c3cad3; --img-filter: invert(1); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --surface: #171e27; --sunken: #121820; --ink: #e8edf3; --muted: #9aa5b4; --line: #2a3441;
+  --accent: #5b9be6; --accent-soft: #1a2a3e; --warn: #f2a65a; --warn-soft: #2b2015; --good: #5cc58a; --good-soft: #15281d;
+  --old: #c3cad3; --img-filter: invert(1); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+.page {
+  max-width: 1080px; margin: 0 auto; padding-block: 32px 120px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 24px;
+}
+h1, h2 { font-family: var(--font-display); margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.2rem; font-weight: 700; }
+p { margin: 0; }
+code, .mono { font-family: var(--font-mono); font-size: 0.82em; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+
+header { display: grid; gap: 14px; }
+.intro { max-width: 700px; color: var(--muted); }
+.loader { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px;
+  cursor: pointer; font-weight: 600; font-size: 0.92rem;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.small { padding: 4px 10px; font-size: 0.82rem; }
+.drop {
+  border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px 16px; color: var(--muted);
+  font-size: 0.92rem; flex: 1 1 260px; min-width: 0;
+}
+.drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.paste-hint {
+  display: flex; gap: 14px; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 14px 16px; max-width: 760px;
+}
+.paste-hint kbd {
+  font: 700 1.1rem var(--font-mono); background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-bottom-width: 3px; border-radius: 8px; padding: 6px 10px; white-space: nowrap;
+}
+.paste-hint p { font-size: 0.95rem; }
+.paste-hint.loaded { background: var(--good-soft); border-color: var(--good); }
+details.paste summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; }
+details.paste textarea {
+  width: 100%; min-height: 120px; margin-top: 8px; font: 0.8rem var(--font-mono); padding: 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+.banner {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px;
+}
+.banner b { font-family: var(--font-display); }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pill.example { background: var(--warn-soft); color: var(--warn); }
+.pill.check { background: var(--warn-soft); color: var(--warn); }
+.pill.changed { background: var(--good-soft); color: var(--good); }
+.pill.chosen { background: var(--accent-soft); color: var(--accent); }
+.error { color: #d63939; font-size: 0.9rem; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px;
+  cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--muted);
+}
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab span { font-family: var(--font-mono); font-size: 0.78rem; margin-left: 4px; }
+
+.rows { display: grid; gap: 10px; }
+.row {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  display: grid; grid-template-columns: minmax(150px, 210px) 28px minmax(130px, 170px) 1fr; gap: 14px; align-items: start;
+}
+.row.is-check { border-left: 4px solid var(--warn); }
+.row.is-changed { border-left: 4px solid var(--good); }
+.col { display: grid; gap: 6px; min-width: 0; }
+.tile {
+  width: 56px; height: 56px; border-radius: 10px; background: var(--sunken); display: grid; place-items: center;
+}
+.tile svg { width: 32px; height: 32px; }
+.tile img { width: 32px; height: 32px; filter: var(--img-filter); }
+.old .tile { color: var(--old); }
+.old .tile svg { fill: currentColor; }
+.new .tile { background: var(--accent-soft); color: var(--ink); }
+.name { font-family: var(--font-mono); font-size: 0.78rem; overflow-wrap: anywhere; }
+.new .name { color: var(--accent); font-weight: 600; }
+.meta { font-size: 0.8rem; color: var(--muted); }
+.arrow { color: var(--muted); width: 22px; height: 22px; margin-top: 17px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.shared { font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.shared .mini { width: 18px; height: 18px; color: var(--old); fill: currentColor; }
+.shared .mini img { width: 18px; height: 18px; filter: var(--img-filter); }
+
+.choices { display: grid; gap: 8px; min-width: 0; }
+.choices-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: grid; justify-items: center; gap: 2px; width: 84px; padding: 8px 4px 6px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.chip svg { width: 24px; height: 24px; }
+.chip span { font-family: var(--font-mono); font-size: 0.64rem; color: var(--muted); overflow-wrap: anywhere; text-align: center; line-height: 1.25; }
+.search { display: grid; gap: 8px; }
+.search input {
+  width: 100%; max-width: 360px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: 0.9rem var(--font-body);
+}
+.where summary { cursor: pointer; font-size: 0.8rem; color: var(--accent); }
+.where ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; max-height: 220px; overflow: auto; }
+.where li { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); overflow-wrap: anywhere; }
+.where li b { color: var(--ink); font-weight: 600; }
+.empty { padding: 28px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+
+.extra { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.extra ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; font-size: 0.9rem; }
+
+.footer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.footer-inner { max-width: 1080px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.footer-inner .count { font-weight: 600; }
+
+@media (max-width: 760px) {
+  .row { grid-template-columns: 1fr 28px 1fr; }
+  .choices { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <h1>Icon migration review</h1>
+    <p class="intro">Check what the migration picked for each old Streamline icon. The changes are already applied to your solution files. Rows that need a person come first. Click another icon to change a pick, then copy your changes back to the agent.</p>
+    <div class="paste-hint" id="paste-hint" hidden>
+      <kbd id="paste-key">⌘V</kbd>
+      <p><b>Press <span id="paste-key-text">Cmd+V</span> anywhere on this page</b> to load another result.</p>
+    </div>
+    <details class="paste">
+      <summary>Load another result</summary>
+      <div class="loader" style="margin-top:8px">
+        <button class="btn" type="button" id="open-file">Open icon-migration.json</button>
+        <input type="file" id="file-input" accept=".json,application/json" hidden>
+        <div class="drop" id="drop">…or drop it here. It is in the .icon-migration folder of your solution.</div>
+      </div>
+      <textarea id="paste-input" placeholder='{"solution": "...", "icons": [...]}'></textarea>
+      <button class="btn small" type="button" id="paste-load">Load pasted JSON</button>
+    </details>
+    <p class="error" id="error" hidden></p>
+  </header>
+
+  <div class="banner" id="banner">
+    <div><b id="solution-name">Loading icon data…</b> <span class="pill example" id="example-pill" hidden>Example</span></div>
+    <div class="muted" id="summary"></div>
+  </div>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="rows" id="rows"></div>
+  <div class="extra" id="extra" hidden></div>
+</div>
+
+<div class="footer">
+  <div class="footer-inner">
+    <span class="count" id="change-count">No changes yet</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" type="button" id="reset-all">Reset all</button>
+      <button class="btn primary" type="button" id="copy-changes">Copy changes for the agent</button>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="data-tabler">__TABLER_JSON__</script>
+<script type="application/json" id="data-streamline">__STREAMLINE_JSON__</script>
+<script type="application/json" id="data-result">__RESULT_JSON__</script>
+<script>
+(function () {
+  var TABLER = {};
+  var STREAMLINE = {};
+  var data = null;
+  var choices = {};
+  var isExample = false;
+  var activeTab = 'check';
+  var openSearch = null;
+
+  var el = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  function tablerSvg(name) {
+    var icon = TABLER[name];
+    if (!icon) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="#d63939" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8a3.5 3 0 0 1 3.5 -3h1a3.5 3 0 0 1 3.5 3a3 3 0 0 1 -2 3a3 4 0 0 0 -2 4"/><path d="M12 19l0 .01"/></svg>';
+    }
+    var inner = icon[0].map(function (node) {
+      var attrs = Object.keys(node[1]).map(function (key) { return key + '="' + esc(node[1][key]) + '"'; }).join(' ');
+      return '<' + node[0] + ' ' + attrs + '/>';
+    }).join('');
+    return '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+  }
+
+  function oldSvg(item) {
+    var known = STREAMLINE[item.old];
+    if (known) {
+      return '<svg aria-hidden="true" viewBox="' + esc(known[0]) + '">' + known[1] + '</svg>';
+    }
+    if (typeof item.oldSvg === 'string' && item.oldSvg.indexOf('<svg') !== -1) {
+      return '<img alt="" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(item.oldSvg) + '">';
+    }
+    return '<span class="muted" style="font-size:0.7rem">no picture</span>';
+  }
+
+  function storageKey() { return 'icon-review:' + (data && data.solution ? data.solution : 'unknown'); }
+  function saveChoices() {
+    try { localStorage.setItem(storageKey(), JSON.stringify(choices)); } catch (e) { /* storage unavailable */ }
+  }
+  function loadChoices() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(storageKey()) || '{}');
+      return saved && typeof saved === 'object' ? saved : {};
+    } catch (e) { return {}; }
+  }
+
+  function currentName(item) { return choices[item.old] || item.new; }
+  function isChanged(item) { return !!choices[item.old] && choices[item.old] !== item.new; }
+
+  function sharedMap() {
+    var map = {};
+    data.icons.forEach(function (item) {
+      var name = currentName(item);
+      (map[name] = map[name] || []).push(item);
+    });
+    return map;
+  }
+
+  function rank(item) {
+    if (item.confidence === 'check') { return 0; }
+    if (item.source === 'chosen') { return 1; }
+    return 2;
+  }
+
+  function sortedIcons() {
+    return data.icons.slice().sort(function (a, b) {
+      return rank(a) - rank(b) || (b.uses || 0) - (a.uses || 0) || a.old.localeCompare(b.old);
+    });
+  }
+
+  function filterFor(tab, shared) {
+    return function (item) {
+      if (tab === 'check') { return item.confidence === 'check'; }
+      if (tab === 'chosen') { return item.source === 'chosen'; }
+      if (tab === 'shared') { return shared[currentName(item)].length > 1; }
+      if (tab === 'changed') { return isChanged(item); }
+      return true;
+    };
+  }
+
+  function renderTabs(shared) {
+    var tabs = [
+      ['check', 'To check'], ['chosen', 'Not in reference'], ['shared', 'Shared icons'], ['changed', 'Changed'], ['all', 'All'],
+    ];
+    el('tabs').innerHTML = tabs.map(function (tab) {
+      var count = data.icons.filter(filterFor(tab[0], shared)).length;
+      return '<button class="tab" role="tab" type="button" data-tab="' + tab[0] + '" aria-selected="' + (tab[0] === activeTab) + '">' + tab[1] + '<span>' + count + '</span></button>';
+    }).join('');
+  }
+
+  function searchResults(query) {
+    var q = query.trim().toLowerCase();
+    if (q.length < 2) { return []; }
+    var exact = [], starts = [], contains = [], tagged = [];
+    Object.keys(TABLER).forEach(function (name) {
+      if (name === q) { exact.push(name); }
+      else if (name.indexOf(q) === 0) { starts.push(name); }
+      else if (name.indexOf(q) !== -1) { contains.push(name); }
+      else if (TABLER[name][1].indexOf(q) !== -1) { tagged.push(name); }
+    });
+    return exact.concat(starts, contains, tagged).slice(0, 40);
+  }
+
+  function chip(name, item) {
+    var pressed = currentName(item) === name;
+    return '<button class="chip" type="button" data-old="' + esc(item.old) + '" data-pick="' + esc(name) + '" aria-pressed="' + pressed + '">' + tablerSvg(name) + '<span>' + esc(name) + '</span></button>';
+  }
+
+  function renderRow(item, shared) {
+    var name = currentName(item);
+    var options = [item.new].concat(item.alternatives || []);
+    if (options.indexOf(name) === -1) { options.push(name); }
+    var siblings = shared[name].filter(function (other) { return other.old !== item.old; });
+    var badges = '';
+    if (item.confidence === 'check') { badges += '<span class="pill check">Check</span>'; }
+    if (item.source === 'chosen') { badges += '<span class="pill chosen">Not in reference</span>'; }
+    if (isChanged(item)) { badges += '<span class="pill changed">Changed</span>'; }
+    var sharedHtml = siblings.length ? '<div class="shared">Same icon as: ' + siblings.map(function (other) {
+      return '<span class="mini" title="' + esc(other.old) + '">' + oldSvg(other) + '</span><span class="mono">' + esc(other.old) + '</span>';
+    }).join(' ') + '</div>' : '';
+    var where = (item.where || []);
+    var whereHtml = where.length ? '<details class="where"><summary>Where it is used</summary><ul>' + where.map(function (w) {
+      return '<li><b>' + esc(w.file) + (w.line ? ':' + esc(w.line) : '') + '</b>' + (w.label ? ' · ' + esc(w.label) : '') + (w.context ? '<br>' + esc(w.context) : '') + '</li>';
+    }).join('') + '</ul></details>' : '';
+    var searchOpen = openSearch === item.old;
+    var searchHtml = searchOpen
+      ? '<div class="search"><input type="search" data-search="' + esc(item.old) + '" placeholder="Search all Tabler icons by name or tag" aria-label="Search Tabler icons"><div class="chips" data-results="' + esc(item.old) + '"></div></div>'
+      : '';
+    return '<div class="row' + (item.confidence === 'check' ? ' is-check' : '') + (isChanged(item) ? ' is-changed' : '') + '">'
+      + '<div class="col old"><div class="tile">' + oldSvg(item) + '</div><div class="name">' + esc(item.old) + '</div><div class="meta">' + (item.uses || 0) + ' use' + (item.uses === 1 ? '' : 's') + '</div>' + whereHtml + '</div>'
+      + '<svg class="arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 18l6-6"/><path d="M13 6l6 6"/></svg>'
+      + '<div class="col new"><div class="tile">' + tablerSvg(name) + '</div><div class="name">' + esc(name) + '</div><div class="badges">' + badges + '</div>' + (item.note ? '<div class="meta">' + esc(item.note) + '</div>' : '') + '</div>'
+      + '<div class="choices"><span class="choices-label">Pick</span><div class="chips">' + options.map(function (option) { return chip(option, item); }).join('') + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" data-toggle-search="' + esc(item.old) + '">' + (searchOpen ? 'Close search' : 'Search other icons') + '</button>'
+      + (isChanged(item) ? '<button class="btn small" type="button" data-reset="' + esc(item.old) + '">Reset</button>' : '') + '</div>'
+      + searchHtml + sharedHtml + '</div>'
+      + '</div>';
+  }
+
+  function renderExtra() {
+    var parts = [];
+    var notMigrated = data.notMigrated || [];
+    var fromData = data.fromData || [];
+    if (notMigrated.length) {
+      parts.push('<h2>Not migrated</h2><ul>' + notMigrated.map(function (n) {
+        return '<li><code>' + esc(n.name || '') + '</code> in ' + esc(n.file || '') + (n.line ? ':' + esc(n.line) : '') + (n.reason ? ' · ' + esc(n.reason) : '') + '</li>';
+      }).join('') + '</ul>');
+    }
+    if (fromData.length) {
+      parts.push('<h2>Icon names that come from data</h2><p class="muted">Update these where the data lives.</p><ul>' + fromData.map(function (n) {
+        return '<li>' + esc(n.source || '') + (n.file ? ' · ' + esc(n.file) + (n.line ? ':' + esc(n.line) : '') : '') + '</li>';
+      }).join('') + '</ul>');
+    }
+    el('extra').innerHTML = parts.join('');
+    el('extra').hidden = parts.length === 0;
+  }
+
+  function changes() {
+    return data.icons.filter(isChanged);
+  }
+
+  function render() {
+    if (!data) { return; }
+    var shared = sharedMap();
+    renderTabs(shared);
+    var list = sortedIcons().filter(filterFor(activeTab, shared));
+    el('rows').innerHTML = list.length
+      ? list.map(function (item) { return renderRow(item, shared); }).join('')
+      : '<div class="empty">Nothing in this view.</div>';
+    var count = changes().length;
+    el('change-count').textContent = count ? count + ' change' + (count === 1 ? '' : 's') + ' to send back' : 'No changes yet';
+    var checks = data.icons.filter(function (i) { return i.confidence === 'check'; }).length;
+    var totalUses = data.icons.reduce(function (sum, i) { return sum + (i.uses || 0); }, 0);
+    el('summary').textContent = data.icons.length + ' old icons · ' + totalUses + ' uses · ' + checks + ' to check';
+    el('solution-name').textContent = data.solution || 'Solution';
+    el('example-pill').hidden = !isExample;
+    renderExtra();
+    if (openSearch) {
+      var input = document.querySelector('[data-search="' + CSS.escape(openSearch) + '"]');
+      if (input) { input.focus(); }
+    }
+  }
+
+  function setData(json, example) {
+    if (!json || !Array.isArray(json.icons)) { throw new Error('The file has no "icons" list. Use the icon-migration.json the prompt wrote.'); }
+    json.icons = json.icons.filter(function (i) { return i && typeof i.old === 'string' && typeof i.new === 'string'; });
+    data = json;
+    isExample = !!example;
+    choices = loadChoices();
+    openSearch = null;
+    activeTab = data.icons.some(function (i) { return i.confidence === 'check'; }) ? 'check' : 'all';
+    el('error').hidden = true;
+    render();
+  }
+
+  function showError(message) { el('error').textContent = message; el('error').hidden = false; }
+
+  function readFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try { setData(JSON.parse(reader.result), false); } catch (e) { showError('Could not read that file: ' + e.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  el('open-file').addEventListener('click', function () { el('file-input').click(); });
+  el('file-input').addEventListener('change', function (event) { if (event.target.files[0]) { readFile(event.target.files[0]); } });
+  var drop = el('drop');
+  ['dragenter', 'dragover'].forEach(function (type) { drop.addEventListener(type, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (type) { drop.addEventListener(type, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) { readFile(e.dataTransfer.files[0]); } });
+  var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  if (!isMac) {
+    el('paste-key').textContent = 'Ctrl+V';
+    el('paste-key-text').textContent = 'Ctrl+V';
+  }
+
+  document.addEventListener('paste', function (event) {
+    var target = event.target;
+    if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) { return; }
+    var text = event.clipboardData ? event.clipboardData.getData('text') : '';
+    if (!text) { return; }
+    event.preventDefault();
+    try {
+      setData(JSON.parse(text), false);
+      el('paste-hint').classList.add('loaded');
+      el('paste-hint').querySelector('p').innerHTML = '<b>Loaded ' + esc(data.solution || 'your result') + '.</b> Press ' + (isMac ? 'Cmd+V' : 'Ctrl+V') + ' again to load a newer run.';
+      window.scrollTo(0, 0);
+    } catch (e) {
+      showError('The clipboard does not hold an icon-migration.json result. Ask the agent to copy it again, or open the file below.');
+    }
+  });
+
+  el('paste-load').addEventListener('click', function () {
+    try { setData(JSON.parse(el('paste-input').value), false); } catch (e) { showError('That is not valid JSON: ' + e.message); }
+  });
+
+  el('tabs').addEventListener('click', function (event) {
+    var tab = event.target.closest('[data-tab]');
+    if (!tab) { return; }
+    activeTab = tab.getAttribute('data-tab');
+    openSearch = null;
+    render();
+  });
+
+  el('rows').addEventListener('click', function (event) {
+    var pick = event.target.closest('[data-pick]');
+    if (pick) {
+      var old = pick.getAttribute('data-old');
+      var item = data.icons.find(function (i) { return i.old === old; });
+      var name = pick.getAttribute('data-pick');
+      if (name === item.new) { delete choices[old]; } else { choices[old] = name; }
+      openSearch = null;
+      saveChoices();
+      render();
+      return;
+    }
+    var toggle = event.target.closest('[data-toggle-search]');
+    if (toggle) {
+      var target = toggle.getAttribute('data-toggle-search');
+      openSearch = openSearch === target ? null : target;
+      render();
+      return;
+    }
+    var reset = event.target.closest('[data-reset]');
+    if (reset) {
+      delete choices[reset.getAttribute('data-reset')];
+      saveChoices();
+      render();
+    }
+  });
+
+  el('rows').addEventListener('input', function (event) {
+    var old = event.target.getAttribute('data-search');
+    if (!old) { return; }
+    var item = data.icons.find(function (i) { return i.old === old; });
+    var results = searchResults(event.target.value);
+    var box = document.querySelector('[data-results="' + CSS.escape(old) + '"]');
+    box.innerHTML = results.length ? results.map(function (name) { return chip(name, item); }).join('') : '<span class="muted" style="font-size:0.85rem">Type at least two letters, for example truck or sync.</span>';
+  });
+
+  el('reset-all').addEventListener('click', function () {
+    choices = {};
+    saveChoices();
+    render();
+  });
+
+  el('copy-changes').addEventListener('click', function () {
+    var button = el('copy-changes');
+    var list = changes();
+    if (!list.length) {
+      button.textContent = 'Nothing changed yet';
+      setTimeout(function () { button.textContent = 'Copy changes for the agent'; }, 1600);
+      return;
+    }
+    var text = 'Apply these icon changes from my review (icon-migration skill, step "Apply review changes"):\n'
+      + list.map(function (item) { return '- ' + item.old + ': ' + item.new + ' -> ' + choices[item.old]; }).join('\n');
+    var done = function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy changes for the agent'; }, 1800); };
+    var fallback = function () {
+      el('paste-input').value = text;
+      el('paste-input').closest('details').open = true;
+      el('paste-input').select();
+      button.textContent = 'Selected below, press Ctrl/Cmd+C';
+    };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  });
+
+  var embedded = function (id) {
+    var node = document.getElementById(id);
+    return node ? JSON.parse(node.textContent) : null;
+  };
+  try {
+    TABLER = embedded('data-tabler') || {};
+    STREAMLINE = embedded('data-streamline') || {};
+    var result = embedded('data-result');
+    if (result) { setData(result, false); } else { showError('This page has no migration result. Run the icon-migration skill again.'); }
+  } catch (e) { showError('Could not read the icon data in this page: ' + e.message); }
+})();
+</script>
+
+</body></html>

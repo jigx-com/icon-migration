@@ -1,0 +1,15 @@
+type: component.button
+options:
+  title: =@ctx.inputs.title
+  icon:
+    left: |
+      =@ctx.inputs.title = 'Sync Issues' ? 'hazard-warning-flasher'
+      : $lookup(@ctx.inputs, 'kind') = 'flag' ? 'us' : 'arrow-right'
+    right: "pencil-write"
+  avatar:
+    icon: { left: add, right: 'close' }
+inputs:
+  icon:
+    default: ""
+    required: false
+    type: string

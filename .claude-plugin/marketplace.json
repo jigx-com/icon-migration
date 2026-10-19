@@ -1,0 +1,15 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace.json",
+  "name": "jigx-icon-migration",
+  "description": "One-time migration of Jigx solution icons from Streamline to Tabler",
+  "owner": {
+    "name": "Jigx"
+  },
+  "plugins": [
+    {
+      "name": "icon-migration",
+      "source": "./",
+      "description": "Migrate a Jigx solution's icons from Streamline to Tabler Icons 3.49.0, with a review page"
+    }
+  ]
+}

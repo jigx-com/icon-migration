@@ -1,0 +1,6 @@
+provider: DATA_PROVIDER_REST
+onError:
+  - description: |
+      Not signed in.
+    icon: mood-sad
+    title: Sign in again

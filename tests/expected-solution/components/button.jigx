@@ -1,0 +1,15 @@
+type: component.button
+options:
+  title: =@ctx.inputs.title
+  icon:
+    left: |
+      =@ctx.inputs.title = 'Sync Issues' ? 'alert-triangle'
+      : $lookup(@ctx.inputs, 'kind') = 'flag' ? 'us' : 'chevron-right'
+    right: "pencil"
+  avatar:
+    icon: { left: plus, right: 'x' }
+inputs:
+  icon:
+    default: ""
+    required: false
+    type: string

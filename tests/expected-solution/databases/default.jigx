@@ -1,0 +1,4 @@
+tables:
+  menu:
+    query: |
+      SELECT id, CASE WHEN kind = 'mail' THEN 'mail-plus' ELSE 'list-check' END AS icon FROM menu

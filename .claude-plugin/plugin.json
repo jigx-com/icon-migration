@@ -1,0 +1,8 @@
+{
+  "name": "icon-migration",
+  "description": "One-time migration of a Jigx solution's icons from Streamline names to Tabler Icons 3.49.0 (outline), with a local review page",
+  "version": "1.0.0",
+  "author": {
+    "name": "Jigx"
+  }
+}

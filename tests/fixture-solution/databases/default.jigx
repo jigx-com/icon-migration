@@ -1,0 +1,4 @@
+tables:
+  menu:
+    query: |
+      SELECT id, CASE WHEN kind = 'mail' THEN 'email-action-add' ELSE 'task-list' END AS icon FROM menu

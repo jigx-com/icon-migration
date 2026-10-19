@@ -1,0 +1,7 @@
+name: fixture
+title: Fixture
+tabs:
+  home:
+    jigId: list
+    icon: home
+form: form

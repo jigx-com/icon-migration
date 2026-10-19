@@ -1,0 +1,35 @@
+title: Appointments
+type: jig.list
+icon: clock-hour-4
+placeholders:
+  - title: Loading
+    icon: loading-data
+  - title: Offline
+    icon: is-offline
+actions:
+  - children:
+      - type: action.go-to
+        options:
+          title: Sync now
+          icon: refresh # refresh the list
+          iconColor: primary
+  - children:
+      - type: action.execute-entity
+        options:
+          title: Delete
+          icon: 'trash'
+data: =@ctx.datasources.appointments
+item:
+  type: component.list-item
+  options:
+    title: =@ctx.current.item.name
+    leftElement:
+      element: icon
+      icon: =@ctx.current.item.status = 'done' ? 'circle-check' : 'clock'
+    rightElement:
+      element: icon
+      name: server
+    leftIcon:
+      icon: help-circle
+    label:
+      icon: =@ctx.current.item.icon
